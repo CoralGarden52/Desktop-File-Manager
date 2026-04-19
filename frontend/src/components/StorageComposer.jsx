@@ -1,32 +1,47 @@
-﻿import React, { useRef, useState } from "react";
-import { createMessage } from "../api";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createMessage, uploadMessageFile } from "../api";
 
 const LINK_CANDIDATE_REGEX =
   /(?:https?:\/\/|www\.)[^\s<>"'`]+|(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(?:\/[^\s<>"'`]*)?/gi;
 
-export default function StorageComposer({ onSent }) {
+export default function StorageComposer({ onSent, quotePayload }) {
+  const composerRef = useRef(null);
   const pickerRef = useRef(null);
   const [text, setText] = useState("");
+  const [quoteText, setQuoteText] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [sending, setSending] = useState(false);
+
+  const fileSizeLabel = useMemo(() => {
+    if (!selectedFile) return "";
+    const size = selectedFile.size || 0;
+    if (size < 1024) return `${size}B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)}K`;
+    return `${(size / (1024 * 1024)).toFixed(1)}M`;
+  }, [selectedFile]);
+
+  useEffect(() => {
+    if (!quotePayload?.id || !quotePayload.text) return;
+    setQuoteText(quotePayload.text);
+  }, [quotePayload]);
 
   const chooseFile = () => pickerRef.current?.click();
 
   const submit = async () => {
-    if (!text.trim() && !selectedFile) return;
+    if (!text.trim() && !selectedFile && !quoteText.trim()) return;
     setSending(true);
     try {
-      const parsed = extractLinkAndText(text);
+      const combinedText = quoteText.trim() ? `[quote]${quoteText}[/quote]\n${text}`.trim() : text;
+      const parsed = extractLinkAndText(combinedText);
+
+      let attachmentPayload = null;
+      if (selectedFile) {
+        attachmentPayload = await uploadMessageFile(selectedFile);
+      }
+
       const payload = {
         message: { msg_type: "text", text: parsed.cleanedText || null },
-        attachment: selectedFile
-          ? {
-              file_name: selectedFile.name,
-              mime_type: selectedFile.type || null,
-              size_bytes: selectedFile.size || null,
-              storage_key: `sandbox/${Date.now()}_${selectedFile.name}`,
-            }
-          : null,
+        attachment: attachmentPayload,
         link: parsed.primaryLink
           ? {
               url: parsed.primaryLink.url,
@@ -38,6 +53,7 @@ export default function StorageComposer({ onSent }) {
 
       await createMessage(payload);
       setText("");
+      setQuoteText("");
       setSelectedFile(null);
       if (pickerRef.current) pickerRef.current.value = "";
       onSent();
@@ -54,27 +70,69 @@ export default function StorageComposer({ onSent }) {
     submit();
   };
 
+  useEffect(() => {
+    const onGlobalKeyDown = (event) => {
+      if (event.key !== "Enter") return;
+      if (event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
+      if ((!selectedFile && !quoteText.trim()) || sending) return;
+
+      const root = composerRef.current;
+      if (!root) return;
+      const activeEl = document.activeElement;
+      if (!activeEl || !root.contains(activeEl)) return;
+
+      const tagName = activeEl.tagName?.toLowerCase();
+      if (tagName === "textarea" || tagName === "input") return;
+
+      event.preventDefault();
+      submit();
+    };
+
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, [selectedFile, quoteText, sending]);
+
   return (
-    <section className="composer-wrap">
+    <section className="composer-wrap wx-composer" ref={composerRef}>
       <input
         ref={pickerRef}
         type="file"
         className="hidden-picker"
-        accept="image/*,.pdf,.doc,.docx,.txt,.md,.mp3,.mp4,.mov,.zip"
         onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
       />
-      <div className="composer-main">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onTextKeyDown}
-          placeholder=""
-        />
+
+      <div className="composer-main wx-composer-main">
+        {quoteText ? (
+          <div className="quote-preview quote-preview-in-composer">
+            <div className="quote-preview-text">{quoteText}</div>
+            <button type="button" className="quote-preview-close" onClick={() => setQuoteText("")}>
+              ×
+            </button>
+          </div>
+        ) : null}
+
+        {selectedFile ? (
+          <div className="selected-file-card">
+            <div>
+              <div className="selected-file-name">{selectedFile.name}</div>
+              <div className="selected-file-size">{fileSizeLabel}</div>
+            </div>
+            <div className="selected-file-icon">📄</div>
+          </div>
+        ) : null}
+
+        <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={onTextKeyDown} placeholder="" />
       </div>
-      <div className="composer-toolbar">
-        <button type="button" onClick={chooseFile}>上传图片/文件</button>
-        <div className="file-chip">{selectedFile ? selectedFile.name : "未选择文件"}</div>
-        <button type="button" className="send-btn" disabled={sending} onClick={submit}>
+
+      <div className="composer-toolbar wx-toolbar">
+        <button type="button" className="toolbar-icon-btn" aria-label="文件" onClick={chooseFile}>📁</button>
+
+        <button
+          type="button"
+          className="send-btn wx-send-btn"
+          disabled={sending || (!text.trim() && !selectedFile && !quoteText.trim())}
+          onClick={submit}
+        >
           {sending ? "发送中" : "发送"}
         </button>
       </div>
@@ -102,11 +160,7 @@ function extractLinkAndText(inputText) {
     };
   }
 
-  // Remove URL-like fragments from text so we don't duplicate "文本 + 链接" for the same URL.
-  const cleanedText = original
-    .replace(LINK_CANDIDATE_REGEX, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const cleanedText = original.replace(LINK_CANDIDATE_REGEX, " ").replace(/\s+/g, " ").trim();
 
   return {
     primaryLink,

@@ -1,0 +1,3 @@
+I'd like to work on this issue.
+pr request：content: add new cultural etiquette tip 
+Closes #7491

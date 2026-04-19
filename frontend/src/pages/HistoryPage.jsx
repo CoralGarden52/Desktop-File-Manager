@@ -137,9 +137,9 @@ export default function HistoryPage() {
 
       <section className="history-result-area">
         {activeTab === "image_video" ? (
-          <MediaGridSection groups={groupedMedia} />
+          <MediaGridSection groups={groupedMedia} keyword={keyword} />
         ) : (
-          <RecordListSection items={result} />
+          <RecordListSection items={result} keyword={keyword} />
         )}
       </section>
 
@@ -210,7 +210,7 @@ export default function HistoryPage() {
   );
 }
 
-function RecordListSection({ items }) {
+function RecordListSection({ items, keyword }) {
   if (!items.length) return <div className="empty-block">暂无匹配记录</div>;
 
   return (
@@ -220,10 +220,10 @@ function RecordListSection({ items }) {
           <div className="avatar-dot">E</div>
           <div className="record-main">
             <div className="record-user">Evelyn</div>
-            <div className="record-text">{item.text_plain || renderFallback(item)}</div>
+            <div className="record-text">{highlightText(item.text_plain || renderFallback(item), keyword)}</div>
             {item.links?.length ? (
               <a className="record-link" href={item.links[0].url} target="_blank" rel="noreferrer">
-                {item.links[0].title || item.links[0].url}
+                {highlightText(item.links[0].title || item.links[0].url, keyword)}
               </a>
             ) : null}
           </div>
@@ -234,7 +234,7 @@ function RecordListSection({ items }) {
   );
 }
 
-function MediaGridSection({ groups }) {
+function MediaGridSection({ groups, keyword }) {
   if (!groups.length) return <div className="empty-block">暂无图片或视频记录</div>;
 
   return (
@@ -247,7 +247,7 @@ function MediaGridSection({ groups }) {
               <article className="media-card" key={`${group.label}-${item.id}`}>
                 <div className="media-tag">{guessMediaTag(item)}</div>
                 <div className="media-name">
-                  {item.attachments?.[0]?.file_name || item.text_plain || "图片/视频"}
+                  {highlightText(item.attachments?.[0]?.file_name || item.text_plain || "图片/视频", keyword)}
                 </div>
                 <div className="media-time">{formatDateTimeBeijing(item.created_at)}</div>
               </article>
@@ -314,4 +314,24 @@ function buildCalendarCells(year, month) {
   }
 
   return cells;
+}
+
+function highlightText(text, keyword) {
+  const raw = text || "";
+  const kw = (keyword || "").trim();
+  if (!kw) return raw;
+
+  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${escaped})`, "gi");
+  const parts = raw.split(regex);
+
+  return parts.map((part, idx) =>
+    part.toLowerCase() === kw.toLowerCase() ? (
+      <span key={`${part}-${idx}`} className="hit-mark">
+        {part}
+      </span>
+    ) : (
+      <React.Fragment key={`${part}-${idx}`}>{part}</React.Fragment>
+    )
+  );
 }

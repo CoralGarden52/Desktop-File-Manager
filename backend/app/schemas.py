@@ -53,9 +53,11 @@ class RagIngestRequest(BaseModel):
 
 class AgentAskRequest(BaseModel):
     question: str
+    file_name: Optional[str] = None
 
 
 class AgentAskResponse(BaseModel):
     answer: str
     matched_dates: list[str]
     evidence: list[str]
+    evidence_items: list[dict] = Field(default_factory=list)

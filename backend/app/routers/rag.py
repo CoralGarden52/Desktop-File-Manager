@@ -2,6 +2,7 @@
 
 from ..db import db_cursor, now_iso
 from ..schemas import OcrIngestRequest, RagIngestRequest
+from ..services.rag_service import ingest_message_rag
 
 router = APIRouter(prefix="/rag", tags=["rag"])
 
@@ -55,4 +56,30 @@ def rag_ingest(payload: RagIngestRequest):
             (payload.chunk_text, payload.message_id, payload.source_type),
         )
 
+    return {"ok": True}
+
+
+@router.post("/ingest-message", summary="Ingest a full message into RAG")
+def ingest_message(message_id: int):
+    with db_cursor() as (_, cursor):
+        cursor.execute("SELECT text_plain, created_at FROM messages WHERE id = ?", (message_id,))
+        m = cursor.fetchone()
+        if not m:
+            return {"ok": False, "reason": "message not found"}
+
+        cursor.execute("SELECT url FROM links WHERE message_id = ? ORDER BY id DESC LIMIT 1", (message_id,))
+        l = cursor.fetchone()
+        cursor.execute(
+            "SELECT file_name, mime_type, size_bytes, storage_key, sha256 FROM attachments WHERE message_id = ? ORDER BY id DESC LIMIT 1",
+            (message_id,),
+        )
+        a = cursor.fetchone()
+
+    ingest_message_rag(
+        message_id=message_id,
+        message_text=m["text_plain"],
+        link_url=l["url"] if l else None,
+        attachment=dict(a) if a else None,
+        created_at=m["created_at"],
+    )
     return {"ok": True}

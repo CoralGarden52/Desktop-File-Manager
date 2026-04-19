@@ -1,0 +1,58 @@
+✨ 模型在Epoch 1更新为最佳模型 (Val Acc: 0.3287)
+Epoch 1/50:
+  Train Acc: 0.3362, Val Acc: 0.3287
+  Train F1: 0.2380, Val F1: 0.1649
+  Total Loss: 1.1000, Val Loss: 1.0986
+  Cls Loss: 1.0989
+  Dynamic Loss: 1.0994
+  Domain Loss: 0.5131
+  Graph Loss: 1.3563
+Epoch 2/50:
+  Train Acc: 0.3281, Val Acc: 0.3287
+  Train F1: 0.2064, Val F1: 0.1649
+  Total Loss: 1.0964, Val Loss: 1.0986
+  Cls Loss: 1.0992
+  Dynamic Loss: 1.0959
+  Domain Loss: 0.5077
+  Graph Loss: 1.3558
+Epoch 3/50:
+  Train Acc: 0.3280, Val Acc: 0.3287
+  Train F1: 0.2493, Val F1: 0.1649
+  Total Loss: 1.1014, Val Loss: 1.0986
+  Cls Loss: 1.0999
+  Dynamic Loss: 1.1009
+  Domain Loss: 0.5080
+  Graph Loss: 1.3553
+Epoch 4/50:
+  Train Acc: 0.3287, Val Acc: 0.3287
+  Train F1: 0.2443, Val F1: 0.1649
+  Total Loss: 1.1017, Val Loss: 1.0986
+  Cls Loss: 1.0996
+  Dynamic Loss: 1.1012
+  Domain Loss: 0.5053
+  Graph Loss: 1.3556
+Epoch 5/50:
+  Train Acc: 0.3306, Val Acc: 0.3287
+  Train F1: 0.2406, Val F1: 0.1649
+  Total Loss: 1.1041, Val Loss: 1.0986
+  Cls Loss: 1.0993
+  Dynamic Loss: 1.1036
+  Domain Loss: 0.5048
+  Graph Loss: 1.3556
+Epoch 6/50:
+  Train Acc: 0.3310, Val Acc: 0.3287
+  Train F1: 0.2281, Val F1: 0.1649
+  Total Loss: 1.1052, Val Loss: 1.0986
+  Cls Loss: 1.0992
+  Dynamic Loss: 1.1047
+  Domain Loss: 0.5029
+  Graph Loss: 1.3560
+✨ 模型在Epoch 7更新为最佳模型 (Val Acc: 0.3457)
+Epoch 7/50:
+  Train Acc: 0.3297, Val Acc: 0.3457
+  Train F1: 0.2608, Val F1: 0.1713
+  Total Loss: 1.1043, Val Loss: 1.1007
+  Cls Loss: 1.0999
+  Dynamic Loss: 1.1038
+  Domain Loss: 0.5010
+  Graph Loss: 1.3558

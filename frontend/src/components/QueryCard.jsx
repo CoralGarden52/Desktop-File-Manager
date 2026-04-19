@@ -1,49 +1,84 @@
-﻿import React, { useState } from "react";
-import { askAgent } from "../api";
+﻿import React, { useEffect, useState } from "react";
 
-export default function QueryCard() {
+export default function QueryCard({ quotePayload, onAsk, onOpenDrawer, asking }) {
   const [question, setQuestion] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [quoteText, setQuoteText] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!quotePayload?.id || !quotePayload.text) return;
+    setQuoteText(quotePayload.text);
+  }, [quotePayload]);
 
   const submit = async (event) => {
     event.preventDefault();
-    if (!question.trim()) return;
-    setLoading(true);
+    if (!question.trim() && !quoteText.trim()) return;
+
     setError("");
     try {
-      const data = await askAgent(question.trim());
-      setResult(data);
+      const promptText = question.trim() || "请基于引用内容进行说明";
+      const finalQuestion = quoteText.trim() ? `引用内容：${quoteText}\n用户问题：${promptText}` : promptText;
+      const hintedFileName = inferFileNameFromInput(finalQuestion, quoteText);
+      const displayQuestion = quoteText.trim() ? `基于引用提问：${promptText}` : promptText;
+
+      await onAsk?.({
+        finalQuestion,
+        displayQuestion,
+        fileName: hintedFileName,
+        quoteText: quoteText.trim(),
+      });
+
+      setQuestion("");
+      setQuoteText("");
     } catch (err) {
-      setError(err.message || "查询失败");
-    } finally {
-      setLoading(false);
+      setError(err.message || "提问失败");
     }
   };
 
   return (
     <section className="query-card">
       <form onSubmit={submit}>
-        <label className="input-label">桌面文件助手智能体</label>
+        {quoteText ? (
+          <div className="quote-preview">
+            <div className="quote-preview-text">{quoteText}</div>
+            <button type="button" className="quote-preview-close" onClick={() => setQuoteText("")}>
+              ×
+            </button>
+          </div>
+        ) : null}
+
         <div className="query-row">
-          <input
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder=""
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? "查询中" : "查询"}
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="" />
+          <button type="submit" disabled={asking || (!question.trim() && !quoteText.trim())}>
+            {asking ? "查询中" : "查询"}
           </button>
         </div>
       </form>
+
+      <div className="query-card-actions">
+        <button type="button" className="ghost-btn" onClick={onOpenDrawer}>
+          打开智能体会话
+        </button>
+      </div>
+
       {error ? <div className="error-text">{error}</div> : null}
-      {result ? (
-        <div className="query-result">
-          <div className="result-main">{result.answer}</div>
-          {result.matched_dates?.length ? <div className="result-sub">命中日期：{result.matched_dates.join("、")}</div> : null}
-        </div>
-      ) : null}
     </section>
   );
+}
+
+function inferFileNameFromInput(question, quoteText) {
+  const merged = `${question || ""}\n${quoteText || ""}`;
+  const fromQuotedLine = merged.match(/文件[:：]\s*([^\n\r]+?\.[A-Za-z0-9]{1,8})/);
+  if (fromQuotedLine?.[1]) return sanitizeFileNameHint(fromQuotedLine[1]);
+
+  const m = merged.match(/([^\s\n\r]+?\.[A-Za-z0-9]{1,8})/);
+  if (m?.[1]) return sanitizeFileNameHint(m[1]);
+  return "";
+}
+
+function sanitizeFileNameHint(value) {
+  return (value || "")
+    .trim()
+    .replace(/^[`"'“”‘’\[\(（【]+/, "")
+    .replace(/[`"'“”‘’\]\)）】,，。;；:：!?！？]+$/, "");
 }

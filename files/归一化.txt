@@ -1,0 +1,5 @@
+
+    scaler = StandardScaler()
+    X_train_fold = scaler.fit_transform(X_train_fold)  # 训练集归一化
+    X_test_fold = scaler.transform(X_test_fold)  # 测试集使用训练集参数进行归一化
+    print("数据已归一化")

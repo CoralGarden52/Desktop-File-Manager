@@ -28,6 +28,26 @@ export function createMessage(payload) {
   });
 }
 
+export async function uploadMessageFile(file) {
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch(`${API_BASE}/messages/upload`, {
+    method: "POST",
+    body: form,
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `upload failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export function showAttachmentInFolder(attachmentId) {
+  return request(`/messages/attachments/${attachmentId}/show-in-folder`, {
+    method: "POST",
+  });
+}
+
 export function deleteMessage(messageId) {
   return request(`/messages/${messageId}`, {
     method: "DELETE",
@@ -41,9 +61,9 @@ export function searchMessages(payload) {
   });
 }
 
-export function askAgent(question) {
+export function askAgent(question, fileName = "") {
   return request("/agent/ask", {
     method: "POST",
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, file_name: fileName || null }),
   });
 }
