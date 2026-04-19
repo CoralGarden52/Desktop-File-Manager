@@ -96,7 +96,3 @@ npm run dev
 - `POST /rag/ingest`：通用 RAG 入库
 - `POST /rag/ingest-message`：消息级 RAG 入库
 - `POST /agent/ask`：智能体问答（支持引用文件提问）
-
-## 一句话总结
-
-这个项目把“微信式文件传输助手”扩展成了“可检索、可引用、可追问、可溯源”的本地智能知识助手。
