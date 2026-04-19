@@ -34,16 +34,6 @@
 - `LLM_MAX_TOKENS`
 - `LLM_TIMEOUT_SECONDS`
 
-示例：
-
-```env
-LLM_BASE_URL=https://aihubmix.com/v1
-LLM_API_KEY=your_api_key_here
-LLM_MODEL_ID=coding-glm-5.1
-LLM_TEMPERATURE=0.2
-LLM_MAX_TOKENS=4096
-LLM_TIMEOUT_SECONDS=120
-```
 
 说明：如果 `LLM_API_KEY` 为空，`/agent/ask` 会自动回退到本地摘要模式。
 
