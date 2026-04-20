@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { formatDateTimeBeijing } from "../utils";
 
 export default function AgentDrawer({
@@ -9,6 +9,8 @@ export default function AgentDrawer({
   onClose,
   onCreateSession,
   onSwitchSession,
+  onTogglePinSession,
+  onDeleteSession,
   onSend,
   onJumpToMessage,
 }) {
@@ -17,12 +19,61 @@ export default function AgentDrawer({
     [sessions, activeSessionId]
   );
   const [draft, setDraft] = useState("");
+  const [menuState, setMenuState] = useState({ visible: false, x: 0, y: 0, sessionId: null });
+
+  const selectedSession = useMemo(
+    () => sessions.find((s) => s.id === menuState.sessionId) || null,
+    [sessions, menuState.sessionId]
+  );
+
+  useEffect(() => {
+    if (!menuState.visible) return undefined;
+    const closeMenu = () => setMenuState({ visible: false, x: 0, y: 0, sessionId: null });
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("resize", closeMenu);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("resize", closeMenu);
+    };
+  }, [menuState.visible]);
+
+  useEffect(() => {
+    if (!open && menuState.visible) {
+      setMenuState({ visible: false, x: 0, y: 0, sessionId: null });
+    }
+  }, [open, menuState.visible]);
 
   const submit = async () => {
     const q = draft.trim();
     if (!q || loading) return;
     await onSend?.(q);
     setDraft("");
+  };
+
+  const openSessionMenu = (event, sessionId) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 124;
+    const menuHeight = 88;
+    const x = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8);
+    const y = Math.min(rect.bottom + 6, window.innerHeight - menuHeight - 8);
+    setMenuState({ visible: true, x: Math.max(8, x), y: Math.max(8, y), sessionId });
+  };
+
+  const closeSessionMenu = () => {
+    setMenuState({ visible: false, x: 0, y: 0, sessionId: null });
+  };
+
+  const handleTogglePin = () => {
+    if (!menuState.sessionId) return;
+    onTogglePinSession?.(menuState.sessionId);
+    closeSessionMenu();
+  };
+
+  const handleDeleteSession = () => {
+    if (!menuState.sessionId) return;
+    onDeleteSession?.(menuState.sessionId);
+    closeSessionMenu();
   };
 
   return (
@@ -42,15 +93,23 @@ export default function AgentDrawer({
               + 新建会话
             </button>
             {sessions.map((s) => (
-              <button
-                type="button"
-                key={s.id}
-                className={`agent-session-item ${s.id === activeSessionId ? "is-active" : ""}`}
-                onClick={() => onSwitchSession?.(s.id)}
-              >
-                <div className="agent-session-name">{s.title || "未命名会话"}</div>
-                <div className="agent-session-time">{formatDateTimeBeijing(s.updatedAt || s.createdAt || "")}</div>
-              </button>
+              <div key={s.id} className={`agent-session-item ${s.id === activeSessionId ? "is-active" : ""}`}>
+                <button type="button" className="agent-session-main" onClick={() => onSwitchSession?.(s.id)}>
+                  <div className="agent-session-name">
+                    {s.pinnedAt ? <span className="agent-session-pin">置顶</span> : null}
+                    {s.title || "未命名会话"}
+                  </div>
+                  <div className="agent-session-time">{formatDateTimeBeijing(s.updatedAt || s.createdAt || "")}</div>
+                </button>
+                <button
+                  type="button"
+                  className="agent-session-more"
+                  aria-label="会话操作"
+                  onClick={(event) => openSessionMenu(event, s.id)}
+                >
+                  ⋯
+                </button>
+              </div>
             ))}
           </section>
 
@@ -60,36 +119,39 @@ export default function AgentDrawer({
 
               {activeSession?.messages?.map((msg) => {
                 const parsed = parseDrawerMessage(msg);
+                const roleClass = msg.role === "user" ? "is-user" : "is-assistant";
                 return (
-                <article key={msg.id} className={`agent-msg ${msg.role === "user" ? "is-user" : "is-assistant"}`}>
-                  <div className="agent-msg-role">{msg.role === "user" ? "你" : "桌面文件助手"}</div>
-                  <div className="agent-msg-text">{parsed.mainText}</div>
-                  {msg.role === "user" && parsed.quoteText ? (
-                    <div className="agent-user-quote">{parsed.quoteText}</div>
-                  ) : null}
+                  <div key={msg.id} className={`agent-msg-wrap ${roleClass}`}>
+                    <article className={`agent-msg ${roleClass}`}>
+                      <div className="agent-msg-role">{msg.role === "user" ? "你" : "桌面文件助手"}</div>
+                      {parsed.mainText ? <div className="agent-msg-text">{parsed.mainText}</div> : null}
 
-                  {msg.matched_dates?.length ? <div className="agent-msg-sub">命中日期：{msg.matched_dates.join("、")}</div> : null}
+                      {msg.matched_dates?.length ? <div className="agent-msg-sub">命中日期：{msg.matched_dates.join("、")}</div> : null}
 
-                  {msg.evidence_items?.length ? (
-                    <div className="agent-evidence-list">
-                      {msg.evidence_items.map((item, idx) => (
-                        <button
-                          type="button"
-                          key={`${msg.id}-${item.message_id || "m"}-${idx}`}
-                          className="agent-evidence-item"
-                          onClick={() => item.message_id && onJumpToMessage?.(item.message_id)}
-                        >
-                          <div className="agent-evidence-head">
-                            <span>{item.source_label || item.source_type || "证据"}</span>
-                            <span>{formatDateTimeBeijing(item.created_at || "") || item.date || ""}</span>
-                          </div>
-                          <div className="agent-evidence-snippet">{item.snippet || ""}</div>
-                          <div className="agent-evidence-jump">定位原消息</div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </article>
+                      {msg.evidence_items?.length ? (
+                        <div className="agent-evidence-list">
+                          {msg.evidence_items.map((item, idx) => (
+                            <button
+                              type="button"
+                              key={`${msg.id}-${item.message_id || "m"}-${idx}`}
+                              className="agent-evidence-item"
+                              onClick={() => item.message_id && onJumpToMessage?.(item.message_id)}
+                            >
+                              <div className="agent-evidence-head">
+                                <span>{item.source_label || item.source_type || "证据"}</span>
+                                <span>{formatDateTimeBeijing(item.created_at || "") || item.date || ""}</span>
+                              </div>
+                              <div className="agent-evidence-snippet">{item.snippet || ""}</div>
+                              <div className="agent-evidence-jump">定位原消息</div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </article>
+                    {msg.role === "user" && parsed.quoteText ? (
+                      <div className="agent-user-quote">{parsed.quoteText}</div>
+                    ) : null}
+                  </div>
                 );
               })}
 
@@ -115,6 +177,16 @@ export default function AgentDrawer({
           </section>
         </div>
       </aside>
+      {menuState.visible ? (
+        <div className="chat-context-menu" style={{ left: `${menuState.x}px`, top: `${menuState.y}px` }} onClick={(event) => event.stopPropagation()}>
+          <button type="button" className="chat-context-btn" onClick={handleTogglePin}>
+            {selectedSession?.pinnedAt ? "取消置顶" : "置顶会话"}
+          </button>
+          <button type="button" className="chat-context-delete" onClick={handleDeleteSession}>
+            删除会话
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }

@@ -1,4 +1,5 @@
-﻿import React, { useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { searchMessages } from "../api";
 import { formatDateTimeBeijing, formatMonthLabelBeijing } from "../utils";
 
@@ -49,13 +50,19 @@ export default function HistoryPage() {
         date_exact: tab === "date" ? pickedDate || null : null,
       };
       const data = await searchMessages(payload);
-      setResult(data.items || []);
+      setResult(sortByCreatedAtDesc(data.items || []));
     } catch (err) {
       setError(err.message || "查询失败");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    runSearch("all", "", "");
+    // 仅在页面首次进入时加载全部历史记录
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onTabClick = (tabKey) => {
     if (tabKey !== "date" && activeTab === tabKey) {
@@ -227,7 +234,12 @@ function RecordListSection({ items, keyword }) {
               </a>
             ) : null}
           </div>
-          <div className="record-time">{formatDateTimeBeijing(item.created_at)}</div>
+          <div className="record-side">
+            <div className="record-time">{formatDateTimeBeijing(item.created_at)}</div>
+            <Link className="record-locate" to={`/?jump=${encodeURIComponent(item.id)}`}>
+              定位原消息
+            </Link>
+          </div>
         </article>
       ))}
     </div>
@@ -249,7 +261,12 @@ function MediaGridSection({ groups, keyword }) {
                 <div className="media-name">
                   {highlightText(item.attachments?.[0]?.file_name || item.text_plain || "图片/视频", keyword)}
                 </div>
-                <div className="media-time">{formatDateTimeBeijing(item.created_at)}</div>
+                <div className="media-meta-row">
+                  <div className="media-time">{formatDateTimeBeijing(item.created_at)}</div>
+                  <Link className="media-locate" to={`/?jump=${encodeURIComponent(item.id)}`}>
+                    定位原消息
+                  </Link>
+                </div>
               </article>
             ))}
           </div>
@@ -280,6 +297,14 @@ function groupByMonth(items) {
     map.get(label).push(item);
   }
   return Array.from(map.entries()).map(([label, rows]) => ({ label, items: rows }));
+}
+
+function sortByCreatedAtDesc(items) {
+  return [...items].sort((a, b) => {
+    const ta = new Date(a.created_at || 0).getTime();
+    const tb = new Date(b.created_at || 0).getTime();
+    return tb - ta;
+  });
 }
 
 function toDateInput(date) {
@@ -335,3 +360,6 @@ function highlightText(text, keyword) {
     )
   );
 }
+
+
+

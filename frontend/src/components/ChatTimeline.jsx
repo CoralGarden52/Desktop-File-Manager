@@ -13,6 +13,9 @@ export default function ChatTimeline({
   const groups = groupByDay(messages);
   const timelineRef = useRef(null);
   const messageRefs = useRef(new Map());
+  const skipAutoScrollOnceRef = useRef(false);
+  const centerRetryTimerRef = useRef(null);
+  const clearHighlightTimerRef = useRef(null);
   const [highlightId, setHighlightId] = useState(null);
   const [menuState, setMenuState] = useState({
     visible: false,
@@ -26,19 +29,56 @@ export default function ChatTimeline({
   useEffect(() => {
     const node = timelineRef.current;
     if (!node || jumpToMessageId) return;
+    if (skipAutoScrollOnceRef.current) {
+      skipAutoScrollOnceRef.current = false;
+      return;
+    }
     node.scrollTop = node.scrollHeight;
   }, [messages, jumpToMessageId]);
 
   useEffect(() => {
     if (!jumpToMessageId) return;
-    const targetNode = messageRefs.current.get(jumpToMessageId);
-    if (targetNode) {
-      targetNode.scrollIntoView({ behavior: "smooth", block: "center" });
-      setHighlightId(jumpToMessageId);
-      window.setTimeout(() => setHighlightId(null), 1600);
+    const normalizedId = String(jumpToMessageId);
+    const targetNode = messageRefs.current.get(normalizedId);
+    const listNode = timelineRef.current;
+
+    if (targetNode && listNode) {
+      const centerTargetInList = (behavior = "smooth") => {
+        const targetRect = targetNode.getBoundingClientRect();
+        const listRect = listNode.getBoundingClientRect();
+        const offsetWithinList = targetRect.top - listRect.top + listNode.scrollTop;
+        const centeredTop = offsetWithinList - listNode.clientHeight / 2 + targetNode.clientHeight / 2;
+        listNode.scrollTo({ top: Math.max(0, centeredTop), behavior });
+      };
+
+      skipAutoScrollOnceRef.current = true;
+      centerTargetInList("auto");
+      window.requestAnimationFrame(() => centerTargetInList("smooth"));
+      setHighlightId(normalizedId);
+      if (clearHighlightTimerRef.current) window.clearTimeout(clearHighlightTimerRef.current);
+      clearHighlightTimerRef.current = window.setTimeout(() => setHighlightId(null), 1800);
+      if (centerRetryTimerRef.current) window.clearTimeout(centerRetryTimerRef.current);
+      centerRetryTimerRef.current = window.setTimeout(() => {
+        window.requestAnimationFrame(() => centerTargetInList("auto"));
+        onJumpHandled?.();
+      }, 120);
+      return;
     }
+
+    // 当列表尚未渲染完成时，保留 jump 状态，等待 messages 更新后再定位。
+    if (!messages?.length) return;
+
+    // 列表已加载但仍找不到目标，结束本次 jump，避免状态悬挂。
     onJumpHandled?.();
-  }, [jumpToMessageId, onJumpHandled]);
+  }, [jumpToMessageId, messages, onJumpHandled]);
+
+  useEffect(
+    () => () => {
+      if (centerRetryTimerRef.current) window.clearTimeout(centerRetryTimerRef.current);
+      if (clearHighlightTimerRef.current) window.clearTimeout(clearHighlightTimerRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     const closeMenu = () =>
@@ -120,15 +160,15 @@ export default function ChatTimeline({
             const hasLinks = Boolean(msg.links?.length);
             const fileOnly = Boolean(msg.attachments?.length) && !hasText && !hasLinks;
             const parsed = parseQuotedMessage(msg.text_plain);
-            const rowClass = highlightId === msg.id ? "bubble-row is-highlighted" : "bubble-row";
+            const rowClass = highlightId === String(msg.id) ? "bubble-row is-highlighted" : "bubble-row";
 
             return (
               <article
                 key={msg.id}
                 className={rowClass}
                 ref={(node) => {
-                  if (node) messageRefs.current.set(msg.id, node);
-                  else messageRefs.current.delete(msg.id);
+                  if (node) messageRefs.current.set(String(msg.id), node);
+                  else messageRefs.current.delete(String(msg.id));
                 }}
               >
                 <div className="bubble-time">{formatTime(msg.created_at)}</div>

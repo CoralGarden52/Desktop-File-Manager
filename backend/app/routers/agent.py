@@ -66,11 +66,11 @@ def ask(payload: AgentAskRequest):
 
     is_file_quote_mode = bool(file_hint and "引用内容：" in question)
     if is_file_quote_mode:
-        contexts = retrieve_file_rag_context(file_hint, question=user_question, top_k=12)
+        contexts = retrieve_file_rag_context(file_hint, question=user_question, top_k=100)
         if not contexts:
-            contexts = retrieve_rag_context(user_question or question, top_k=12, file_name=file_hint)
+            contexts = retrieve_rag_context(user_question or question, top_k=100, file_name=file_hint)
     else:
-        contexts = retrieve_rag_context(question, top_k=10, file_name=file_hint)
+        contexts = retrieve_rag_context(question, top_k=100, file_name=file_hint)
 
     if not contexts:
         if is_file_quote_mode:
@@ -132,7 +132,7 @@ def ask(payload: AgentAskRequest):
     system_prompt = (
         "你是桌面文件助手智能体。"
         "你只能基于给定的本地RAG上下文回答，不允许编造。"
-        "回答格式必须为：1) 结论 2) 时间线证据（列出日期、消息ID、证据片段）。"
+        "回答请直接给出结论，不要输出“2) 时间线证据”等结构化分节。"
         "如果证据不足，明确说证据不足。"
     )
     if is_file_quote_mode:
@@ -152,24 +152,33 @@ def ask(payload: AgentAskRequest):
             "请输出中文答案。"
         )
 
-    if llm_service.enabled:
-        try:
-            answer = llm_service.chat(system_prompt, user_prompt)
-        except Exception as exc:
-            fallback_question = user_question if is_file_quote_mode else question
-            answer = (
-                "智能体调用模型失败，已回退本地总结："
-                f"{build_fallback_answer(fallback_question, contexts, file_hint)}（错误: {exc}）"
-            )
+    if is_file_quote_mode:
+        if not llm_service.enabled:
+            answer = "文件引用问答需要启用大模型接口（请配置 LLM_API_KEY），当前无法完成总结。"
+        else:
+            try:
+                answer = llm_service.chat(system_prompt, user_prompt)
+            except Exception as exc:
+                answer = f"文件引用问答调用模型失败：{exc}"
     else:
-        fallback_question = user_question if is_file_quote_mode else question
-        answer = build_fallback_answer(fallback_question, contexts, file_hint)
+        if llm_service.enabled:
+            try:
+                answer = llm_service.chat(system_prompt, user_prompt)
+            except Exception as exc:
+                fallback_question = user_question if is_file_quote_mode else question
+                answer = (
+                    "智能体调用模型失败，已回退本地总结："
+                    f"{build_fallback_answer(fallback_question, contexts, file_hint)}（错误: {exc}）"
+                )
+        else:
+            fallback_question = user_question if is_file_quote_mode else question
+            answer = build_fallback_answer(fallback_question, contexts, file_hint)
 
     return AgentAskResponse(
         answer=answer,
         matched_dates=matched_dates,
-        evidence=evidence[:8],
-        evidence_items=evidence_items[:8],
+        evidence=evidence,
+        evidence_items=evidence_items,
     )
 
 

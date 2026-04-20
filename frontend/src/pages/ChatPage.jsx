@@ -1,4 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { askAgent, deleteMessage, listMessages, showAttachmentInFolder } from "../api";
 import AgentDrawer from "../components/AgentDrawer";
 import QueryCard from "../components/QueryCard";
@@ -7,7 +8,26 @@ import StorageComposer from "../components/StorageComposer";
 
 const AGENT_STORE_KEY = "desktop_file_agent_sessions_v1";
 
+function sortSessions(items) {
+  return [...(items || [])].sort((a, b) => {
+    const aPinned = Boolean(a.pinnedAt);
+    const bPinned = Boolean(b.pinnedAt);
+    if (aPinned !== bPinned) return bPinned ? 1 : -1;
+
+    if (aPinned && bPinned) {
+      const pa = new Date(a.pinnedAt || 0).getTime();
+      const pb = new Date(b.pinnedAt || 0).getTime();
+      if (pa !== pb) return pb - pa;
+    }
+
+    const ua = new Date(a.updatedAt || 0).getTime();
+    const ub = new Date(b.updatedAt || 0).getTime();
+    return ub - ua;
+  });
+}
+
 export default function ChatPage() {
+  const location = useLocation();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -65,6 +85,13 @@ export default function ChatPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    const jumpId = params.get("jump");
+    if (!jumpId) return;
+    setJumpToMessageId(jumpId);
+  }, [location.search]);
+
   const createSession = useCallback((titleSeed = "") => {
     const id = `session_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`;
     const now = new Date().toISOString();
@@ -74,6 +101,7 @@ export default function ChatPage() {
       title,
       createdAt: now,
       updatedAt: now,
+      pinnedAt: null,
       messages: [],
     };
     setAgentSessions((prev) => [session, ...prev]);
@@ -211,8 +239,37 @@ export default function ChatPage() {
     setJumpToMessageId(null);
   }, []);
 
+  const handleTogglePinSession = useCallback((sessionId) => {
+    setAgentSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== sessionId) return s;
+        return {
+          ...s,
+          pinnedAt: s.pinnedAt ? null : new Date().toISOString(),
+        };
+      })
+    );
+  }, []);
+
+  const handleDeleteSession = useCallback(
+    (sessionId) => {
+      const ok = window.confirm("确认删除这个会话吗？");
+      if (!ok) return;
+
+      setAgentSessions((prev) => {
+        const next = prev.filter((s) => s.id !== sessionId);
+        setActiveSessionId((currentId) => {
+          if (currentId !== sessionId) return currentId;
+          return sortSessions(next)[0]?.id || null;
+        });
+        return next;
+      });
+    },
+    []
+  );
+
   const sortedSessions = useMemo(() => {
-    return [...agentSessions].sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+    return sortSessions(agentSessions);
   }, [agentSessions]);
 
   return (
@@ -244,9 +301,13 @@ export default function ChatPage() {
         onClose={() => setDrawerOpen(false)}
         onCreateSession={() => createSession("新会话")}
         onSwitchSession={(id) => setActiveSessionId(id)}
+        onTogglePinSession={handleTogglePinSession}
+        onDeleteSession={handleDeleteSession}
         onSend={handleDrawerSend}
         onJumpToMessage={handleJumpToMessage}
       />
     </div>
   );
 }
+
+

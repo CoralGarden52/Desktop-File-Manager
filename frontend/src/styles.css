@@ -212,7 +212,7 @@ body,
 
 .chat-context-menu {
   position: fixed;
-  z-index: 1200;
+  z-index: 1400;
   background: #fff;
   border: 1px solid #d4d4d4;
   border-radius: 8px;
@@ -423,6 +423,24 @@ body,
   white-space: nowrap;
 }
 
+.record-side {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 8px;
+}
+
+.record-locate {
+  color: #07a552;
+  font-size: 15px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.record-locate:hover {
+  text-decoration: underline;
+}
+
 .media-sections {
   display: grid;
   gap: 16px;
@@ -470,6 +488,24 @@ body,
 .media-time {
   color: #7f7f7f;
   font-size: 12px;
+}
+
+.media-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.media-locate {
+  color: #07a552;
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.media-locate:hover {
+  text-decoration: underline;
 }
 
 .date-modal-mask {
@@ -607,6 +643,12 @@ body,
     grid-column: 2;
     text-align: left;
     font-size: 14px;
+  }
+
+  .record-side {
+    grid-column: 2;
+    justify-items: start;
+    gap: 4px;
   }
 
   .record-text {
@@ -932,18 +974,28 @@ body,
 }
 
 .agent-session-item {
-  width: 100%;
   border: 1px solid #ededed;
-  background: #fff;
   border-radius: 8px;
-  text-align: left;
-  padding: 8px;
+  padding: 8px 8px 8px 10px;
   margin-bottom: 8px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: 1fr 28px;
+  align-items: center;
+  gap: 6px;
 }
 
 .agent-session-item.is-active {
   border-color: #b6e6c9;
   background: #f2fff7;
+}
+
+.agent-session-main {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  min-width: 0;
 }
 
 .agent-session-name {
@@ -952,12 +1004,45 @@ body,
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-session-pin {
+  flex: none;
+  color: #0a8a48;
+  font-size: 11px;
+  line-height: 1;
+  border: 1px solid #bfe7cf;
+  border-radius: 999px;
+  padding: 2px 6px;
+  background: #effcf5;
 }
 
 .agent-session-time {
   margin-top: 4px;
   font-size: 11px;
   color: #9a9a9a;
+}
+
+.agent-session-more {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #8c8c8c;
+  font-size: 18px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.agent-session-more:hover {
+  background: #ececec;
+  color: #555;
 }
 
 .agent-chat-area {
@@ -972,20 +1057,30 @@ body,
   background: #fafafa;
 }
 
-.agent-msg {
+.agent-msg-wrap {
   max-width: 92%;
-  border-radius: 10px;
-  padding: 10px;
   margin-bottom: 10px;
 }
 
-.agent-msg.is-user {
+.agent-msg-wrap.is-user {
   margin-left: auto;
+}
+
+.agent-msg-wrap.is-assistant {
+  margin-right: auto;
+}
+
+.agent-msg {
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 0;
+}
+
+.agent-msg.is-user {
   background: #95ec69;
 }
 
 .agent-msg.is-assistant {
-  margin-right: auto;
   background: #fff;
   border: 1px solid #e7e7e7;
 }
@@ -1004,7 +1099,7 @@ body,
 }
 
 .agent-user-quote {
-  margin-top: 8px;
+  margin-top: 6px;
   padding: 8px 10px;
   background: #f1f1f3;
   border-left: 3px solid #c8c8cc;
